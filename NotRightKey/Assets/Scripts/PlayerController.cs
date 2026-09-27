@@ -227,6 +227,7 @@ public class PlayerController : MonoBehaviour //, IPointerClickHandler
     private IEnumerator AttackRoutine(bool isLight)
     {
         if (_isBusy) yield break;
+        levelUI.PlayEffect(0);
         levelUI.ArrowClick(-1);
         _lastMoveDirection = Vector3.zero;
         _isBusy = true;

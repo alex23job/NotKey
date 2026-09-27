@@ -6,6 +6,7 @@ TagManager:
   tags:
   - magma
   - Enemy
+  - Shild
   layers:
   - Default
   - TransparentFX

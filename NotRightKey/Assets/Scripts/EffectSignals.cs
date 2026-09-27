@@ -23,6 +23,7 @@ public static class EffectSignals
     public static event Action<EffectData> OnStatusApplied;
 
     public static event Action<int> OnEnemyLoss;
+    public static event Action<int> OnDecrimentInventoryItem;
 
     public static void RaiseStatusApplied(EffectData data)
     {
@@ -32,5 +33,10 @@ public static class EffectSignals
     public static void RaiseEnemyLoss(int value)
     {
         OnEnemyLoss?.Invoke(value);
+    }
+
+    public static void RaiseDecrimentInventoryItem(int value)
+    {
+        OnDecrimentInventoryItem?.Invoke(value);
     }
 }

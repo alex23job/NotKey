@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
-using UnityEditor.Overlays;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
@@ -234,6 +233,28 @@ public class PlayerInfo
     {
         //PlayersGarage.Instance.AddCar(4);
         return new PlayerInfo();
+    }
+
+    public void ResetProgress()
+    {
+        maxLevel = 1;
+        currentLevel = 1;
+        inventory = new Inventory();
+        totalGold = 200;
+        totalScore = 0;
+        questStatus = "";
+        oldPosition = Vector3.zero;
+        oldRotation = Vector3.zero;
+        GameManager.Instance.SaveGame();
+    }
+
+    public void LevelComplete(int exp, int gold)
+    {
+        totalGold += gold;
+        totalScore += exp;
+        currentLevel++;
+        maxLevel++;
+        GameManager.Instance.SaveGame();
     }
 
     public string PosAndRotToCsvString()

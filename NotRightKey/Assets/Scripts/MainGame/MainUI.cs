@@ -7,11 +7,12 @@ public class MainUI : MonoBehaviour
     [SerializeField] private Button[] _btnLevels;
     [SerializeField] private Button[] _btnBonus;
     [SerializeField] private Text _txtMany;
+    [SerializeField] private Text _txtExp;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
+        LevelInfo.CreateLevels();
     }
 
     // Update is called once per frame
@@ -27,12 +28,19 @@ public class MainUI : MonoBehaviour
         {
             _btnLevels[i].interactable = i < maxLevel;
         }
+        _txtExp.text = $"Опыт : {GameManager.Instance.currentPlayer.totalScore}";
     }
 
     public void LoadLevel(int level)
     {
         GameManager.Instance.currentPlayer.currentLevel = level;
         SceneManager.LoadScene("LevelScene");
+    }
+
+    public void ResetProgress()
+    {
+        GameManager.Instance.currentPlayer.ResetProgress();
+        ViewLevels();
     }
 
     public void ViewStore()

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class PlayerData : MonoBehaviour
@@ -28,17 +29,39 @@ public class PlayerData : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        PlayerProgress pp = new PlayerProgress(GameManager.Instance.currentPlayer.questStatus);
+        pp.ChangeParams(GameManager.Instance.currentPlayer.totalScore);
+        _hp = pp.MaxHP; _maxhp = pp.MaxHP; _energy = pp.MaxEnergy; _maxEnergy = pp.MaxEnergy;
         levelUI.ViewInitLevel(_hp, _exp, _many, _energy, _maxhp, _maxEnergy);
     }
 
     private void OnEnable()
     {
         EffectSignals.OnStatusApplied += AppleEffect;
+        EffectSignals.OnEnemyLoss += EnemyLoss;
     }
 
     private void OnDisable()
     {
         EffectSignals.OnStatusApplied -= AppleEffect;
+        EffectSignals.OnEnemyLoss += EnemyLoss;
+    }
+
+    private void EnemyLoss(int code)
+    {
+        int num = (code >> 16) & 0xff;
+        if (num == 1)
+        {
+            _exp += 50;
+            _many += 50;
+        }
+        else
+        {
+            _exp += 20;
+            _many += 30;
+        }
+        levelUI.ViewExp(_exp);
+        levelUI.ViewMany(_many);
     }
 
     private void AppleEffect(EffectData data)
@@ -90,10 +113,16 @@ public class PlayerData : MonoBehaviour
 
     public void AcceptBonus(Bonus bonus)
     {
+        levelUI.PlayEffect(2);
         switch(bonus.BonusType)
         {
             case 0:
-                AddHP(bonus.BonusValue);
+                if (_hp < _maxhp) AddHP(bonus.BonusValue);
+                else
+                {
+                    GameManager.Instance.currentPlayer.inventory.AddItem(0, 1);
+                    levelUI.ViewInventoryCounts(0, GameManager.Instance.currentPlayer.inventory.CountItemByID(0));
+                }
                 break;
             case 1:
                 _exp += bonus.BonusValue;
@@ -109,10 +138,16 @@ public class PlayerData : MonoBehaviour
                 levelUI.ViewEnergy(_energy, _maxEnergy);
                 break;
             case 4:
+                GameManager.Instance.currentPlayer.inventory.AddItem(1, 1);
+                levelUI.ViewInventoryCounts(1, GameManager.Instance.currentPlayer.inventory.CountItemByID(1));
                 break;
             case 5:
+                GameManager.Instance.currentPlayer.inventory.AddItem(2, 1);
+                levelUI.ViewInventoryCounts(2, GameManager.Instance.currentPlayer.inventory.CountItemByID(2));
                 break;
             case 6:
+                GameManager.Instance.currentPlayer.inventory.AddItem(3, 1);
+                levelUI.ViewInventoryCounts(3, GameManager.Instance.currentPlayer.inventory.CountItemByID(3));
                 break;
             case 7:
                 _currenViewDelay = _delayViewEffects;
@@ -136,7 +171,11 @@ public class PlayerData : MonoBehaviour
         _hp -= dmg;
         if (_hp < 0) _hp = 0;
         levelUI.ViewHP(_hp, _maxhp);
-        if (_hp == 0) Invoke("GameLoss", 1f);
+        if (_hp == 0)
+        {
+            levelUI.PlayEffect(1);
+            Invoke("GameLoss", 1f);
+        }
     }
 
     private void GameLoss()

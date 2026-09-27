@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
+using System;
 
 public class LevelUI : MonoBehaviour
 {
@@ -23,7 +24,11 @@ public class LevelUI : MonoBehaviour
     [SerializeField] private GameObject _hintPanel;
     [SerializeField] private GameObject _keyPanel;
 
+    [SerializeField] private PlaySounds fone;
+    [SerializeField] private PlaySounds effects;
+
     private List<ButtonControl> _btnControls = new List<ButtonControl> ();
+    private bool _isWinLossPanelView = false;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -45,6 +50,21 @@ public class LevelUI : MonoBehaviour
     void Update()
     {
         
+    }
+
+    private void OnEnable()
+    {
+        EffectSignals.OnDecrimentInventoryItem += DecrimentInventoryItem;
+    }
+
+    private void OnDisable()
+    {
+        EffectSignals.OnDecrimentInventoryItem -= DecrimentInventoryItem;
+    }
+
+    private void DecrimentInventoryItem(int val)
+    {
+        ViewInventoryCounts(val, GameManager.Instance.currentPlayer.inventory.CountItemByID(val));
     }
 
     public void ArrowClick(int index)
@@ -72,6 +92,7 @@ public class LevelUI : MonoBehaviour
     public void ViewKeyPanel(bool val)
     {
         _keyPanel.SetActive(val);
+        if (val) PlayEffect(3);
     }
 
     public void ViewHP(int value, int maxHp)
@@ -101,18 +122,30 @@ public class LevelUI : MonoBehaviour
         _numLevel.text = value.ToString();
     }
 
+    public void PlayEffect(int num)
+    {
+        effects.PlayClip(num);
+    }
+
     public void ViewLossPanel()
     {
+        if (_isWinLossPanelView) return;
         _lossPanel.SetActive(true);
+        _isWinLossPanelView = true;
+        fone.PlayClip(2);
     }
 
     public void ViewWinPanel(LevelInfo info, int exp, int many)
     {
+        if (_isWinLossPanelView) return;
+        fone.PlayClip(1);
         _winTextLines[0].text = $"{info.Number} уровень\r\n пройден !!!";
         _winTextLines[1].text = $"Опыт : {info.LevelExp} + {exp}";
         _winTextLines[2].text = $"Монеты : {info.LevelMany} + {many}";
         _winTextLines[3].text = "";
         _winPanel.SetActive(true);
+        GameManager.Instance.currentPlayer.LevelComplete(info.LevelExp + exp, info.LevelMany + many);
+        _isWinLossPanelView = true;
     }
 
     public void ViewInventoryCounts(int tp, int val)
@@ -129,6 +162,10 @@ public class LevelUI : MonoBehaviour
 
     public void Restart()
     {
+        if (GameManager.Instance.currentPlayer.maxLevel > 10)
+        {
+            SceneManager.LoadScene("FinalScene");
+        }
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 

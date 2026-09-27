@@ -71,6 +71,7 @@ public class KeysBoard : MonoBehaviour
     {
         int numEffect = 0;
         int numBonus = -1;
+        int countMonst = 0;
         GameObject bonus = null;
         IKeyEffect keyEffect = null;
         int[] ps_value = { 20, 15, 20, 0 };
@@ -113,7 +114,10 @@ public class KeysBoard : MonoBehaviour
                         {   //  particle
                             key.AddComponent<ParticleEffect>();
                             ParticleEffect pef = key.GetComponent<ParticleEffect>();
-                            pef.SetParams(_particles[numEffect - 3], effectTypes[numEffect - 3], ps_heigts[numEffect - 3], 2f, ps_value[numEffect - 3]);
+                            GameObject prefab = null;
+                            if (numEffect == 3) prefab = bonusPrefabs[6];
+                            if (numEffect == 4) prefab = bonusPrefabs[4];
+                            pef.SetParams(_particles[numEffect - 3], effectTypes[numEffect - 3], ps_heigts[numEffect - 3], 2f, ps_value[numEffect - 3], prefab);
                         }
                         else
                         {   //  moving
@@ -131,12 +135,13 @@ public class KeysBoard : MonoBehaviour
                     }
                     if (_levelInfo.MonstrArr.Contains(keyControl.KeyID))
                     {
+                        countMonst++;
                         Vector3 pos = key.transform.position;
                         pos.y += 2f;
                         GameObject enemy = Instantiate(enemyPrefabs[0], pos, Quaternion.identity);
                         EnemyControl enemyControl = enemy.GetComponent<EnemyControl>();
                         //enemyControl.SetParams(_particles[0], 50, 10, 1);
-                        enemyControl.SetParams(50, 10, 1, keyControl.KeyID);
+                        enemyControl.SetParams(50, 10, countMonst, keyControl.KeyID);
                         keyControl.IsEnemy = true;
                     }
                 }
@@ -202,6 +207,21 @@ public class KeysBoard : MonoBehaviour
             if (keyControl != null)
             {
                 keyControl.PlayPush();
+                switch(keyControl.TypeEffect)
+                {
+                    case EffectType.FallingRock:
+                    case EffectType.Lightning:
+                        if (GameManager.Instance.currentPlayer.inventory.CountItemByID(2) > 0)
+                        {
+                            Vector3 pos = key.transform.position;
+                            pos.y += 6f;
+                            GameObject shild = Instantiate(bonusPrefabs[5], pos, Quaternion.Euler(new Vector3(90f, 0, 0)));
+                            Destroy(shild, 3f);
+                            GameManager.Instance.currentPlayer.inventory.DecItem(2, 1);
+                            EffectSignals.RaiseDecrimentInventoryItem(2);
+                        }
+                        break;
+                }
                 keyControl.AcceptEffect();
             }
         }
