@@ -21,6 +21,8 @@ public class PlayerController : MonoBehaviour //, IPointerClickHandler
     private GameControls _controls; // Наш сгенерированный класс
     private bool _isBusy;
 
+    public bool IsFinishKey { get; set; } = false;
+
     [Header("Game Rules")][SerializeField]
     private bool forbidRepeatingMoves = true; // Включатель правила на случай теста
 
@@ -50,11 +52,30 @@ public class PlayerController : MonoBehaviour //, IPointerClickHandler
         _controls.Player.AttackShiftLeft.performed += ctx => StartCoroutine(AttackRoutine(true));
         _controls.Player.AttackCtrlLeft.performed += ctx => StartCoroutine(AttackRoutine(false));
         _controls.Player.Enable();
+        EffectSignals.OnEnemyLoss += EnemyLoss;
     }
     
     private void OnDisable()
     {
         _controls.Player.Disable();
+        EffectSignals.OnEnemyLoss -= EnemyLoss;
+    }
+
+    private void HideHint()
+    {
+        levelUI.ViewHint("", false);
+    }
+
+    private void EnemyLoss(int code)
+    {
+        int val = (code >> 16) & 0xff;
+        if (val == 1)
+        {
+            levelUI.ViewKeyPanel(true);
+            levelUI.ViewHint("Получен ключ от портала", true);
+            Invoke("HideHint", 5f);
+            IsFinishKey = true;
+        }
     }
 
     public void OnButtonClick(string btnName)
@@ -80,6 +101,7 @@ public class PlayerController : MonoBehaviour //, IPointerClickHandler
         // 2. ПРАВИЛО ИГРЫ: Проверка повторяющегося направления
         if (forbidRepeatingMoves && IsSameDirection(direction, _lastMoveDirection))
         {
+            modelTransform.rotation = Quaternion.LookRotation(direction, Vector3.up);
             //Debug.Log($"Нельзя нажимать '{GetKeyName(direction)}' два раза подряд!");
             return; // Выходим из метода, ничего не происходит
         } // Если проверка пройдена - обновляем состояние ДО начала движения
@@ -90,7 +112,7 @@ public class PlayerController : MonoBehaviour //, IPointerClickHandler
         if (direction == Vector3.left) levelUI.ArrowClick(2);
         if (direction == Vector3.right) levelUI.ArrowClick(3);
 
-        //if (_playerData.DecrementViewDelay()) keysBoard;
+        if (_playerData.DecrementViewDelay()) keysBoard.ViewColorEffects(false);
 
         // 3. Поворачиваем модель до начала движения
         if (modelTransform != null)
@@ -100,6 +122,28 @@ public class PlayerController : MonoBehaviour //, IPointerClickHandler
         
         // 2. Запрашиваем координату цели у Менеджера Доски
         Vector3 destination = keysBoard.GetTargetPosition(transform.position, direction);
+        GameObject key = keysBoard.FindKeyByPos(destination);
+        if (key != null)
+        {
+            KeyControl keyControl = key.GetComponent<KeyControl>();
+            if (keyControl != null)
+            {
+                if (keyControl.IsEnemy)
+                {
+                    modelTransform.rotation = Quaternion.LookRotation(direction, Vector3.up);
+                    return;
+                }
+                if (keyControl.KeyID == keysBoard.CurrentLevel.FinishKey)
+                {
+                    if (IsFinishKey == false)
+                    {
+                        levelUI.ViewHint("Победите лешего и получите ключ !!!", true);
+                        Invoke("HideHint", 5f);
+                        return;
+                    }
+                }
+            }
+        }
         destination.y += 2f;
         
         // 3. Запускаем корутину перемещения
@@ -145,6 +189,38 @@ public class PlayerController : MonoBehaviour //, IPointerClickHandler
 
         yield return new WaitForSeconds(0.2f);
 
+        Vector3 keyPos = transform.position;
+        keyPos.y -= 2f;
+        GameObject key = keysBoard.FindKeyByPos(keyPos);
+        if (key != null) 
+        {
+            KeyControl keyControl = key.GetComponent<KeyControl>();
+            if (keyControl != null) 
+            {
+                print($"<<Moving>> TypeEffect = {keyControl.TypeEffect}");
+                if (keyControl.TypeEffect == EffectType.Oil)
+                {
+                    Vector3 newDestination = keysBoard.GetTargetPosition(transform.position, lookDirection);
+                    newDestination.y += 2f;
+                    yield return StartCoroutine(MoveRoutine(newDestination, lookDirection));
+                }
+                if (keyControl.TypeEffect == EffectType.RandomMoving)
+                {
+                    int numDir = Random.Range(0, 4);
+                    Vector3 newDirection = Vector3.forward;
+                    switch(numDir)
+                    {
+                        case 1: newDirection = Vector3.back; break;
+                        case 2: newDirection = Vector3.left; break;
+                        case 3: newDirection = Vector3.right; break;
+                    }
+                    Vector3 newDestination = keysBoard.GetTargetPosition(transform.position, newDirection);
+                    newDestination.y += 2f;
+                    yield return StartCoroutine(MoveRoutine(newDestination, lookDirection));
+                }
+            }
+        }
+
         _isBusy = false;
     }
     
@@ -157,7 +233,7 @@ public class PlayerController : MonoBehaviour //, IPointerClickHandler
         //_animator.SetTrigger(isLight ? "DoLightAttack" : "DoHeavyAttack");
         _animator.SetBool(isLight ? "DoLightAttack" : "DoHeavyAttack", true);
         AnimatorClipInfo[] clipInfos = _animator.GetCurrentAnimatorClipInfo(0);
-        print($"len={clipInfos.Length} {clipInfos[0].clip.name} {clipInfos[0].clip.length}");
+        //print($"len={clipInfos.Length} {clipInfos[0].clip.name} {clipInfos[0].clip.length}");
         //float animationLength = clipInfos.Length > 0 ? clipInfos[0].clip.length : 0.5f;
         float animationLength = isLight ? 0.2f : 0.4f;
         yield return new WaitForSeconds(animationLength);
@@ -165,6 +241,7 @@ public class PlayerController : MonoBehaviour //, IPointerClickHandler
         _animator.SetBool("DoHeavyAttack", false);
         _animator.gameObject.transform.localPosition = Vector3.zero;
         _animator.gameObject.transform.localRotation = Quaternion.Euler(new Vector3(-90F, 0, -270F));
+        yield return new WaitForSeconds(1f);
         _isBusy = false;
     }
     

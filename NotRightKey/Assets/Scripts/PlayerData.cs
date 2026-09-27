@@ -28,7 +28,39 @@ public class PlayerData : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        levelUI.ViewInitLevel(_hp, _exp, _many, _energy);
+        levelUI.ViewInitLevel(_hp, _exp, _many, _energy, _maxhp, _maxEnergy);
+    }
+
+    private void OnEnable()
+    {
+        EffectSignals.OnStatusApplied += AppleEffect;
+    }
+
+    private void OnDisable()
+    {
+        EffectSignals.OnStatusApplied -= AppleEffect;
+    }
+
+    private void AppleEffect(EffectData data)
+    {
+        switch(data.Type)
+        {
+            case EffectType.FireParticles:
+                Damage(data.Value);
+                ChangeMaterial(1);
+                break;
+            case EffectType.PoisonParticles:
+                Damage(data.Value);
+                ChangeMaterial(2);
+                break;
+            case EffectType.HealParticles:
+                AddHP(data.Value);
+                ChangeMaterial(0);
+                break;
+            case EffectType.WaterSplash:
+                ChangeMaterial(0);
+                break;
+        }
     }
 
     public bool DecrementViewDelay()
@@ -61,12 +93,7 @@ public class PlayerData : MonoBehaviour
         switch(bonus.BonusType)
         {
             case 0:
-                if (_hp < _maxhp)
-                {
-                    _hp += bonus.BonusValue;
-                    if (_hp > _maxhp) _hp = _maxhp;
-                }
-                levelUI.ViewHP(_hp);
+                AddHP(bonus.BonusValue);
                 break;
             case 1:
                 _exp += bonus.BonusValue;
@@ -79,7 +106,7 @@ public class PlayerData : MonoBehaviour
             case 3:
                 _energy += bonus.BonusValue;
                 if (_energy > _maxEnergy) _energy = _maxEnergy;
-                levelUI.ViewEnergy(_energy);
+                levelUI.ViewEnergy(_energy, _maxEnergy);
                 break;
             case 4:
                 break;
@@ -89,7 +116,48 @@ public class PlayerData : MonoBehaviour
                 break;
             case 7:
                 _currenViewDelay = _delayViewEffects;
+                keysBoard.ViewColorEffects(true);
                 break;
         }
+    }
+
+    public void AddHP(int hp)
+    {
+        if (_hp < _maxhp)
+        {
+            _hp += hp;
+            if (_hp > _maxhp) _hp = _maxhp;
+        }
+        levelUI.ViewHP(_hp, _maxhp);
+    }
+
+    public void Damage(int dmg)
+    {
+        _hp -= dmg;
+        if (_hp < 0) _hp = 0;
+        levelUI.ViewHP(_hp, _maxhp);
+        if (_hp == 0) Invoke("GameLoss", 1f);
+    }
+
+    private void GameLoss()
+    {
+        levelUI.ViewLossPanel();
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("magma"))
+        {
+            levelUI.Restart();
+        }
+        if (other.CompareTag("Finish"))
+        {
+            Invoke("ViewWinPanel", 2f);
+        }
+    }
+
+    private void ViewWinPanel()
+    {
+        levelUI.ViewWinPanel(keysBoard.CurrentLevel, _exp, _many);
     }
 }

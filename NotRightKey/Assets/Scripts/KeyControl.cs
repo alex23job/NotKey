@@ -5,10 +5,17 @@ public class KeyControl : MonoBehaviour
     [SerializeField] private int _keyID = 0;
     [SerializeField] private int _keyMode = 0;
 
+    public int KeyID { get { return _keyID; } }
     /// <summary>
     /// режим клавиши: 0 - без эффектов и бонусов, 1 - с эффектом, 2 - с бонусом, 3 - с эффектом и бонусом
     /// </summary>
     public int KeyMode { get { return _keyMode; } }
+
+    public EffectType TypeEffect { get { return (_keyEffect != null ? _keyEffect.Type : EffectType.None); } }
+
+    public bool IsEnemy { get; set; }
+
+    private IKeyEffect _keyEffect = null;
 
     private Animator _animator;
 
@@ -34,6 +41,26 @@ public class KeyControl : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        EffectSignals.OnEnemyLoss += ResetEnemy;
+    }
+    private void OnDisable()
+    {
+        EffectSignals.OnEnemyLoss -= ResetEnemy;
+    }
+
+    private void ResetEnemy(int code)
+    {
+        int id = code & 0xffff;
+        //print($"ResetEnemy code=0x{code:X04} id=0x{id:X04} KeyID=0x{_keyID:X04}");
+        if (id == _keyID)
+        {
+            print($"ResetEnemy code=0x{code:X04} id=0x{id:X04} KeyID=0x{_keyID:X04}");
+            IsEnemy = false;
+        }
+    }
+
     public void PlayPush()
     {
         //print($"Push {name}");
@@ -56,10 +83,25 @@ public class KeyControl : MonoBehaviour
         _keyMode = mode;
     }
 
-    public void SetParams(Material effMat, GameObject bonus = null)
+    public void SetParams(Material effMat)
     {
         _effectMat = effMat;
-        _bonus = bonus;
+        _keyEffect = GetComponent<IKeyEffect>();        
+    }
+
+    public void SetBonus(GameObject bonus = null)
+    {
+        Vector3 pos = transform.position;
+        pos.y += 2.5f;
+        _bonus = Instantiate(bonus, pos, Quaternion.identity); 
+    }
+
+    public void AcceptEffect()
+    {
+        if (_keyEffect != null)
+        {
+            _keyEffect.Execute(transform);
+        }
     }
 
     public void ViewEffectMat(bool value)

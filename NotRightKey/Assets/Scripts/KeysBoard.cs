@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using Unity.VisualScripting;
 
 public class KeysBoard : MonoBehaviour
 {
@@ -12,9 +13,16 @@ public class KeysBoard : MonoBehaviour
 
     [SerializeField] private Material[] materials;
     [SerializeField] private GameObject[] bonusPrefabs;
-    //[SerializeField] private ... [] effects;
+    [SerializeField] private GameObject[] fallingPrefabs;
+    [SerializeField] private ParticleSystem[] particleSystems;
+    [SerializeField] private GameObject[] enemyPrefabs;
+    [SerializeField] private GameObject finishPrefab;
 
     private LevelInfo _levelInfo = null;
+
+    private ParticleSystem[] _particles;
+
+    public LevelInfo CurrentLevel { get { return _levelInfo; } }
 
     void Start()
     {
@@ -24,6 +32,7 @@ public class KeysBoard : MonoBehaviour
     public void SetLevelInfo(LevelInfo info)
     {
         _levelInfo = info;
+        SetParamToKeys();
 
     }
 
@@ -43,9 +52,96 @@ public class KeysBoard : MonoBehaviour
         Debug.Log($"[KeysBoard] Cached {AllKeyPositions.Count} keys.");
     }
 
+    public void ViewColorEffects(bool value)
+    {
+        foreach (Transform line in transform)
+        {
+            foreach (Transform key in line)
+            {
+                KeyControl keyControl = key.GetComponent<KeyControl>();
+                if (keyControl != null)
+                {
+                    keyControl.ViewEffectMat(value);
+                }
+            }
+        }
+    }
+
     public void SetParamToKeys()
     {
+        int numEffect = 0;
+        int numBonus = -1;
+        GameObject bonus = null;
+        IKeyEffect keyEffect = null;
+        int[] ps_value = { 20, 15, 20, 0 };
+        float[] ps_heigts = { 1f, 1f, 2f, 3f};
+        EffectType[] effectTypes = { EffectType.FireParticles, EffectType.PoisonParticles, EffectType.HealParticles, EffectType.WaterSplash, EffectType.Oil, EffectType.RandomMoving };
 
+        _particles = new ParticleSystem[particleSystems.Length];
+        for (int j = 0; j < particleSystems.Length; j++)
+        {
+            _particles[j] = Instantiate(particleSystems[j], new Vector3(0, -3f, -10f), Quaternion.Euler(new Vector3(-90f, 0, 0)));
+            if (j == 2) _particles[j].transform.rotation = Quaternion.Euler(Vector3.zero);
+            if (j == 3) _particles[j].transform.rotation = Quaternion.Euler(new Vector3(90f, 0, 0));
+            _particles[j].gameObject.SetActive(false);
+        }
+
+        foreach (Transform line in transform)
+        {
+            foreach (Transform key in line)
+            {
+                KeyControl keyControl = key.GetComponent<KeyControl>();
+                if (keyControl != null)
+                {
+                    if (keyControl.KeyID == _levelInfo.FinishKey)
+                    {
+                        GameObject fin = Instantiate(finishPrefab, key.position, Quaternion.identity);
+                        fin.transform.parent = key;
+                        fin.transform.localPosition = new Vector3(0, 1f, 0);
+                    }
+                    if  (_levelInfo.EffectArr.Contains(keyControl.KeyID))
+                    {
+                        numEffect = Random.Range(1, 9);
+                        //print($"id = {keyControl.KeyID}    numEffect = {numEffect}");
+                        if (numEffect < 3)
+                        {   //  falling
+                            key.AddComponent<FallingObjectEffect>();
+                            FallingObjectEffect foef = key.GetComponent<FallingObjectEffect>();
+                            foef.SetParams(fallingPrefabs[numEffect - 1], 10 * numEffect, (numEffect == 1) ? EffectType.FallingRock : EffectType.Lightning);
+                        }
+                        else if (numEffect >= 3 && numEffect < 7)
+                        {   //  particle
+                            key.AddComponent<ParticleEffect>();
+                            ParticleEffect pef = key.GetComponent<ParticleEffect>();
+                            pef.SetParams(_particles[numEffect - 3], effectTypes[numEffect - 3], ps_heigts[numEffect - 3], 2f, ps_value[numEffect - 3]);
+                        }
+                        else
+                        {   //  moving
+                            key.AddComponent<MovingEffect>();
+                            MovingEffect mof = key.GetComponent<MovingEffect>();
+                            mof.SetParams(fallingPrefabs[numEffect - 5], effectTypes[numEffect - 3], 1f, 1f);
+                        }
+                        keyControl.SetParams(materials[numEffect - 1]);
+                    }
+                    if (_levelInfo.BonusArr.Contains(keyControl.KeyID))
+                    {
+                        numBonus = Random.Range(0, bonusPrefabs.Length);
+                        bonus = bonusPrefabs[numBonus];
+                        keyControl.SetBonus(bonus);
+                    }
+                    if (_levelInfo.MonstrArr.Contains(keyControl.KeyID))
+                    {
+                        Vector3 pos = key.transform.position;
+                        pos.y += 2f;
+                        GameObject enemy = Instantiate(enemyPrefabs[0], pos, Quaternion.identity);
+                        EnemyControl enemyControl = enemy.GetComponent<EnemyControl>();
+                        //enemyControl.SetParams(_particles[0], 50, 10, 1);
+                        enemyControl.SetParams(50, 10, 1, keyControl.KeyID);
+                        keyControl.IsEnemy = true;
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -106,6 +202,7 @@ public class KeysBoard : MonoBehaviour
             if (keyControl != null)
             {
                 keyControl.PlayPush();
+                keyControl.AcceptEffect();
             }
         }
         return res;       
@@ -126,5 +223,18 @@ public class KeysBoard : MonoBehaviour
         }
 
         return null;
+    }
+
+    public void AcceptKeyEffect(Vector3 pos)
+    {
+        GameObject key = FindKeyByPos(pos);
+        if (key != null)
+        {
+            KeyControl keyControl = key.GetComponent<KeyControl>();
+            if (keyControl != null)
+            {
+                keyControl.AcceptEffect();
+            }
+        }
     }
 }
